@@ -5,7 +5,6 @@ if (document.getElementById('fetch-package')) {
   bindFetchPackage();
 }
 
-// Display current date
 def initDate() {
   const dateEl = document.getElementById('current-date');
   if (dateEl) {
@@ -13,8 +12,6 @@ def initDate() {
     dateEl.setAttribute('datetime', new Date().toISOString().split('T')[0]);
   }
 }
-
-// Navigation routing via data-route attributes
 function bindNavigation() {
   document.querySelectorAll('[data-route]').forEach(link => {
     link.addEventListener('click', e => {

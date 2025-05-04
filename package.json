@@ -1,0 +1,20 @@
+{
+  "name": "demoday",
+  "version": "1.0.0",
+  "description": "DemoDayApp",
+  "main": "route.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DvonteD23/DemoDayWeek12.git"
+  },
+  "author": "DD",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DvonteD23/DemoDayWeek12/issues"
+  },
+  "homepage": "https://github.com/DvonteD23/DemoDayWeek12#readme"
+}
