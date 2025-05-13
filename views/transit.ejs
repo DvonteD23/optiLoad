@@ -1,0 +1,18 @@
+<%- include('partials/header', { user, title: 'In Transit' }) %>
+
+<main id="transit">
+  <section class="transit-details">
+    <h2>In Transit</h2>
+    <p><strong>Carrier:</strong> <%= load.shippingCompany %></p>
+    <p><strong>Commodity:</strong> <%= load.commodity %></p>
+    <p><strong>Distance:</strong> <%= load.distance %> mi</p>
+    <p><strong>Rate:</strong> $<%= load.rate.toFixed(2) %> / mi</p>
+    <p><strong>Total Pay:</strong> $<%= (load.distance * load.rate).toFixed(2) %></p>
+  </section>
+  <button id="delivered-button" data-id="<%= load._id %>">
+    Mark as Delivered
+  </button>
+</main>
+
+<script src="/js/transit.js" type="module"></script>
+<%- include('partials/footer') %>

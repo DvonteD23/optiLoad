@@ -1,0 +1,63 @@
+<%- include('partials/header', { user, title: 'Dashboard' }) %>
+
+<main id="dash">
+  <section>
+    <h2>Welcome, <%= user.name %></h2>
+    <form id="request-form">
+      <div class="form-group">
+        <label for="vehicleType">Vehicle Type</label>
+        <select id="vehicleType" name="vehicleType" required>
+          <option value="">Select type</option>
+          <option value="van">Van</option>
+          <option value="boxtruck">Box Truck</option>
+          <option value="flatbed">Flat Bed</option>
+          <option value="towtruck">Tow Truck</option>
+          <option value="semi">Semi</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="vehicleLength">Length (ft)</label>
+        <select id="vehicleLength" name="vehicleLength" required>
+          <option value="">Select length</option>
+          <option value="14">14</option>
+          <option value="16">16</option>
+          <option value="20">20</option>
+          <option value="26">26</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="requestType">Request Type</label>
+        <select id="requestType" name="requestType" required>
+          <option value="full">Full</option>
+          <option value="partial">Partial</option>
+        </select>
+      </div>
+      <button type="submit">Request Shipment</button>
+    </form>
+    <div id="offer"></div>
+  </section>
+
+  <aside>
+    <h3>My Loads</h3>
+    <div class="loads-table-container">
+      <table class="loads-table">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Length (ft)</th>
+            <th>Weight (lb)</th>
+            <th>Distance (mi)</th>
+            <th>Commodity</th>
+            <th>Rate ($/mi)</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="loads-body">
+        </tbody>
+      </table>
+    </div>
+  </aside>
+</main>
+
+<script src="/js/dashboard.js" type="module"></script>
