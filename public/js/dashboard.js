@@ -1,52 +1,93 @@
-const form     = document.getElementById('request-form');
-const offerBox = document.getElementById('offer');
+const form         = document.getElementById('request-form');
+const offerBox     = document.getElementById('offer');
+const balInput     = document.getElementById('balance-amount');
+const balButton    = document.getElementById('balance-btn');
+const balDisplay   = document.getElementById('balance'); // from header.ejs
 
+// 1) Balance update handler
+balButton.addEventListener('click', async () => {
+  const amt = parseFloat(balInput.value);
+  if (isNaN(amt) || amt <= 0) {
+    return alert('Please enter a valid amount');
+  }
+
+  const res = await fetch('/balance', {
+    method:  'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ amount: amt })
+  });
+
+  if (res.ok) {
+    const { balance } = await res.json();
+    balDisplay.textContent = `Balance: $${balance.toFixed(2)}`;
+    balInput.value = '';
+  } else {
+    alert('Error updating balance');
+  }
+});
+
+// 2) Shipment request + offer display
 form.addEventListener('submit', async e => {
   e.preventDefault();
   await fetchOffer();
 });
 
 async function fetchOffer() {
-  offerBox.textContent = 'Loading…';
-  const data = Object.fromEntries(new FormData(form));
+  offerBox.innerHTML = `<p>Loading shipment…</p>`;
 
-  data.vehicleType       = data.vehicleType.toLowerCase();
-  data.vehicleLength     = parseInt(data.vehicleLength, 10);
-  data.currentLoadLength = 0;
-  data.currentLoadWeight = 0;
+  const data = Object.fromEntries(new FormData(form));
+  data.vehicleLength     = Number(data.vehicleLength);
+  data.currentLoadLength = Number(data.currentLoadLength || 0);
+  data.currentLoadWeight = Number(data.currentLoadWeight || 0);
   data.requestType       = data.requestType === 'partial' ? 'partial' : 'full';
 
-  const res = await fetch('/api/shipments/request', {
+  const res = await fetch('/api/shipments', {
     method:  'POST',
-    headers: { 'Content-Type':'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(data)
   });
-
   if (!res.ok) {
-    const { msg='Error requesting shipment' } = await res.json().catch(()=>({}));
-    return void (offerBox.textContent = msg);
+    let msg = 'Error requesting load';
+    try { msg = (await res.json()).msg; } catch {}
+    offerBox.textContent = msg;
+    return;
   }
 
-  const s = await res.json();
-  displayOffer(s);
+  const load = await res.json();
+  displayOffer(load);
   loadMyShipments();
 }
 
-function displayOffer(s) {
-  offerBox.innerHTML = `
-    <p>${s.shippingCompany}: ${s.loadLength} ft · ${s.loadWeight} lb · 
-       ${s.distance} mi · $${s.rate.toFixed(2)}/mi</p>
-  `;
+function displayOffer(load) {
+  offerBox.innerHTML = '';
 
-  const acceptBtn = document.createElement('button');
-  acceptBtn.textContent = 'Accept';
-  acceptBtn.onclick = () => decide(true, s._id);
-  offerBox.appendChild(acceptBtn);
-//Decline offer
-  const declineBtn = document.createElement('button');
-  declineBtn.textContent = 'Decline';
-  declineBtn.onclick = () => fetchOffer();
-  offerBox.appendChild(declineBtn);
+  //Shipment Info
+  const info = document.createElement('p');
+  info.className = 'offer-info';
+  info.textContent =
+    `${load.shippingCompany} — ${load.city}, ${load.state} — ` +
+    `${load.loadLength} ft · ${load.loadWeight} lb · ` +
+    `${load.distance} mi · $${load.rate.toFixed(2)}/mi`;
+  offerBox.appendChild(info);
+
+  const btns = document.createElement('div');
+  btns.className = 'buttons';
+
+  const accept = document.createElement('button');
+  accept.textContent = 'Accept';
+  accept.addEventListener('click', () => decide(true, load._id));
+  btns.appendChild(accept);
+
+  const decline = document.createElement('button');
+  decline.textContent = 'Decline';
+  decline.addEventListener('click', async () => {
+    offerBox.innerHTML = `<p>Searching for next shipment…</p>`;
+    await new Promise(r => setTimeout(r, 5000));
+    fetchOffer();
+  });
+  btns.appendChild(decline);
+
+  offerBox.appendChild(btns);
 }
 
 async function decide(accept, id) {
@@ -55,7 +96,7 @@ async function decide(accept, id) {
   if (res.ok) {
     window.location.href = `/transit/${id}`;
   } else {
-    offerBox.textContent = 'Error accepting shipment.';
+    offerBox.textContent = 'Error accepting load.';
   }
 }
 
@@ -63,14 +104,15 @@ async function loadMyShipments() {
   const tbody = document.getElementById('loads-body');
   const res   = await fetch('/api/shipments');
   if (!res.ok) {
-    tbody.innerHTML = `<tr><td colspan="8">Error loading shipments</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9">Error loading shipments</td></tr>`;
     return;
   }
-  const items = await res.json().catch(()=>[]);
+  const items = await res.json();
   if (!items.length) {
-    tbody.innerHTML = `<tr><td colspan="8">No shipments found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9">No shipments found</td></tr>`;
     return;
   }
+
   tbody.innerHTML = items.map(s => `
     <tr>
       <td>${s.shippingCompany}</td>
@@ -79,16 +121,11 @@ async function loadMyShipments() {
       <td>${s.distance}</td>
       <td>${s.commodity}</td>
       <td>$${s.rate.toFixed(2)}</td>
+      <td>${s.city}</td>
+      <td>${s.state}</td>
       <td>${s.status}</td>
-      <td>${s.status==='available'
-          ? `<button data-id="${s._id}" class="accept-btn">Accept</button>`
-          : ''}</td>
     </tr>
   `).join('');
-  document.querySelectorAll('.accept-btn').forEach(btn =>
-    btn.onclick = () => decide(true, btn.dataset.id)
-  );
 }
 
-// initial fetch
 loadMyShipments();

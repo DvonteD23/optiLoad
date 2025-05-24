@@ -8,16 +8,25 @@ const shipmentSchema = new Schema({
   commodity:       { type: String, required: true },
   rate:            { type: Number, required: true },
   shippingCompany: { type: String, required: true },
+
+  city:  { type: String, required: true },
+  state: { type: String, required: true },
+
   status: {
     type: String,
-    enum: ['available','assigned','loading','in-transit','delivered'],
+    enum: [
+      'available',    // can be requested
+      'assigned',     // ← added back here
+      'loading',
+      'in-transit',
+      'delivered'
+    ],
     default: 'available'
   },
-  assignedTo:      { type: Schema.Types.ObjectId, ref: 'User', default: null },
-  createdAt:       { type: Date, default: Date.now }
+  assignedTo: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  createdAt:  { type: Date, default: Date.now }
 }, {
   collection: 'shipments'
 });
 
 module.exports = mongoose.models.Shipment || mongoose.model('Shipment', shipmentSchema);
-

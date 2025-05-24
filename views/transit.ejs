@@ -1,14 +1,39 @@
 <%- include('partials/header', { user, title: 'In Transit' }) %>
 
-<main id="transit">
-  <section class="transit-details">
-    <h2>In Transit</h2>
-    <p><strong>Carrier:</strong> <%= load.shippingCompany %></p>
-    <p><strong>Commodity:</strong> <%= load.commodity %></p>
-    <p><strong>Distance:</strong> <%= load.distance %> mi</p>
-    <p><strong>Rate:</strong> $<%= load.rate.toFixed(2) %> / mi</p>
-    <p><strong>Total Pay:</strong> $<%= (load.distance * load.rate).toFixed(2) %></p>
-  </section>
+<main id="transit" class="container">
+  <h2 class="text-3xl text-center">In Transit</h2>
+
+  <div class="load-details">
+    <div class="detail">
+      <div class="label">Carrier</div>
+      <div class="value"><%= load.shippingCompany %></div>
+    </div>
+    <div class="detail">
+      <div class="label">Commodity</div>
+      <div class="value"><%= load.commodity %></div>
+    </div>
+    <div class="detail">
+      <div class="label">Distance</div>
+      <div class="value"><%= load.distance %> mi</div>
+    </div>
+    <div class="detail">
+      <div class="label">Rate</div>
+      <div class="value">$<%= load.rate.toFixed(2) %> / mi</div>
+    </div>
+    <div class="detail">
+      <div class="label">Total Pay</div>
+      <div class="value">$<%= (load.distance * load.rate).toFixed(2) %></div>
+    </div>
+    <div class="detail">
+      <div class="label">Delivery City</div>
+      <div class="value"><%= load.city %></div>
+    </div>
+    <div class="detail">
+      <div class="label">Delivery State</div>
+      <div class="value"><%= load.state %></div>
+    </div>
+  </div>
+
   <button id="delivered-button" data-id="<%= load._id %>">
     Mark as Delivered
   </button>

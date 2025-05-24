@@ -40,7 +40,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-//Local signup strategy
+//Passport Strategies
+// Local signup
 passport.use('local-signup', new LocalStrategy({
     usernameField:    'email',
     passReqToCallback: true
@@ -48,19 +49,18 @@ passport.use('local-signup', new LocalStrategy({
   async (req, email, password, done) => {
     try {
       email = email.toLowerCase();
-      if (await userModel.exists({ email })) {
+      const existing = await userModel.findOne({ email });
+      if (existing) {
         return done(null, false, { message: 'Email already in use' });
       }
-      const hash = await bcrypt.hash(password, 12);
-      const newUser = await userModel.create({
+      const hash = await bcrypt.hash(password, 10);
+      const newUser = new userModel({
+        name:     req.body.name,
         email,
-        password:      hash,
-        name:          `${req.body.firstName} ${req.body.lastName}`.trim(),
-        company:       req.body.company,
-        vehicleType:   req.body.vehicleType,
-        vehicleLength: req.body.vehicleLength,
-        balance:       0
+        password: hash,
+        balance:  0
       });
+      await newUser.save();
       done(null, newUser);
     } catch (err) {
       done(err);
@@ -68,7 +68,7 @@ passport.use('local-signup', new LocalStrategy({
   }
 ));
 
-//Local login strategy
+// Local login
 passport.use('local-login', new LocalStrategy({
     usernameField: 'email'
   },
@@ -100,7 +100,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-//Auth routes
+//Auth Routes
 app.get('/login',    (req, res) => res.render('login',    { message: req.flash('error') }));
 app.post('/login',   passport.authenticate('local-login', {
   successRedirect: '/dashboard',
@@ -118,37 +118,29 @@ app.get('/logout',   (req, res) => {
   res.redirect('/login');
 });
 
-//Dashboard
+//Dashboard & API
 app.get('/dashboard', ensureAuth, (req, res) => {
   res.render('dashboard', { user: req.user });
 });
-
-//Mount shipments API
-console.log('shipmmentsAPI connected');
 app.use('/api/shipments', ensureAuth, shipmentsRouter);
-
-//Transit screen
 app.get('/transit/:id', ensureAuth, async (req, res) => {
   try {
-    const shipment = await shipmentModel.findById(req.params.id);
-    if (!shipment || shipment.assignedTo.toString() !== req.user.id) {
+    const load = await shipmentModel.findById(req.params.id).lean();
+    if (!load || load.assignedTo.toString() !== req.user.id) {
       return res.redirect('/dashboard');
     }
-    res.render('transit', { load: shipment, user: req.user });
+    res.render('transit', { user: req.user, load });
   } catch (err) {
     console.error('Transit route error:', err);
     res.redirect('/dashboard');
   }
 });
 
-// Update user balance
-app.put('/api/users/balance', ensureAuth, async (req, res) => {
+//Update User Balance
+app.put('/balance', ensureAuth, async (req, res) => {
   try {
-    let amount = parseFloat(req.body.amount);
-    if (isNaN(amount)) {
-      return res.status(400).json({ msg: 'Invalid amount' });
-    }
-    req.user.balance = (req.user.balance || 0) + amount;
+    const amt = Number(req.body.amount);
+    req.user.balance += amt;
     await req.user.save();
     res.json({ balance: req.user.balance });
   } catch (err) {
@@ -157,60 +149,73 @@ app.put('/api/users/balance', ensureAuth, async (req, res) => {
   }
 });
 
-//Catch-all → Redirect to Login
+//Catch-all
 app.use((req, res) => res.redirect('/login'));
 
-//Connect MongoDB, seed shipments, then listen
+//MongoDB Connection & Unconditional Reseed
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB connected to:', mongoose.connection.name);
 
-    // placeholder data definitions
+    // Carriers + delivery locations
+    const carriers = [
+      'Absolute Transport','Global Freight Co.','Quick Haul','Express Logistics',
+      'Metro Haulers','Pioneer Logistics','Summitt County Freight',
+      'Coastal Carolina Carriers','TransAtlantic Line','Frontier Shipping',
+      'Liberty Trucking','Evergreen Movers','Skyline Transport','Montana Haul LLC'
+    ];
+    const locations = [
+      { city: 'Boston',      state: 'MA' },
+      { city: 'Providence',  state: 'RI' },
+      { city: 'Hartford',    state: 'CT' },
+      { city: 'Manchester',  state: 'NH' },
+      { city: 'Albany',      state: 'NY' },
+      { city: 'Portland',    state: 'ME' },
+      { city: 'Burlington',  state: 'VT' },
+      { city: 'Wilmington',  state: 'DE' },
+      { city: 'Trenton',     state: 'NJ' },
+      { city: 'Harrisburg',  state: 'PA' },
+      { city: 'Richmond',    state: 'VA' },
+      { city: 'Columbia',    state: 'SC' },
+      { city: 'Jacksonville',state: 'FL' },
+      { city: 'Baltimore',   state: 'MD' }
+    ];
+
     const LENGTH_LIMITS = { 14:3500, 16:4000, 20:4500, 26:12000 };
-    const carriers   = ['Acme Transport','Global Freight Co.','Rapid Haul Ltd.','Express Logistics'];
-    const commodities= ['Electronics','Furniture','Apparel','Automotive','Food'];
-    const lengths    = Object.keys(LENGTH_LIMITS).map(Number);
+    const commodities   = ['Electronics','Furniture','Apparel','Automotive','Food'];
+    const lengths       = Object.keys(LENGTH_LIMITS).map(Number);
 
-    // compute how many shipments we *expect*
-    const expectedCount = carriers.length * commodities.length * lengths.length;
+    //ALWAYS RESEED
+    console.log('Deleting existing shipments and reseeding with full dataset...');
+    await shipmentModel.deleteMany({});
 
-    // see how many actually exist
-    const count = await shipmentModel.countDocuments();
-    console.log('Existing shipment count:', count, '/', expectedCount);
-
-    if (count < expectedCount) {
-      console.log('Generate new test shipments');
-      // clear old
-      await shipmentModel.deleteMany({});
-
-      // build bulk
-      const bulk = [];
-      carriers.forEach(c => {
-        commodities.forEach(comm => {
-          lengths.forEach(len => {
-            bulk.push({
-              shippingCompany: c,
-              commodity:       comm,
-              loadLength:      len,
-              loadWeight:      Math.floor(Math.random()*LENGTH_LIMITS[len]) + 1,
-              distance:        Math.floor(Math.random()*951) + 50,
-              rate:            Number((Math.random()*4 + 1).toFixed(2)),
-              status:          'available',
-              assignedTo:      null,
-              createdAt:       new Date()
-            });
+    const bulk = [];
+    carriers.forEach((company, idx) => {
+      const loc = locations[idx];
+      commodities.forEach(commodity => {
+        lengths.forEach(len => {
+          bulk.push({
+            shippingCompany: company,
+            commodity,
+            loadLength: len,
+            loadWeight: Math.floor(Math.random() * LENGTH_LIMITS[len]) + 1,
+            distance:   Math.floor(Math.random() * 951) + 50,
+            rate:       Number((Math.random() * 4 + 1).toFixed(2)),
+            status:     'available',
+            assignedTo: null,
+            createdAt:  new Date(),
+            city:       loc.city,
+            state:      loc.state
           });
         });
       });
+    });
+    await shipmentModel.insertMany(bulk);
+    console.log(`Inserted ${bulk.length} shipments.`);
 
-      await shipmentModel.insertMany(bulk);
-      console.log(`Test ${bulk.length} placeholder shipments`);
-    } else {
-      console.log('Test shipments loaded in database');
-    }
-
+    //Start server
     app.listen(PORT, () =>
-      console.log(`✓ Server active on http://localhost:${PORT}`)
+      console.log(`Server listening at http://localhost:${PORT}`)
     );
   })
   .catch(err => {

@@ -1,6 +1,17 @@
 <%- include('partials/header', { title:'Login' }) %>
 
 <main class="auth-section container">
+
+  <!-- App overview panel -->
+  <section class="app-summary">
+    <h2>About OptiLoad</h2>
+    <p>
+      OptiLoad is a third-party logistics platform that integrates seamlessly with your company's existing software and database. 
+      Based in Boston and founded in 2025, we provide dynamic load matching, real-time tracking, and automated rate calculations to 
+      streamline your freight operations.
+    </p>
+  </section>
+
   <form id="login-form" class="auth-form" action="/login" method="POST">
     <h2>Login</h2>
     <div class="form-group">
